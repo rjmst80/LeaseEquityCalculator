@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lease Equity / Payoff Calculator</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#f7f7f8; }
+    .wrap { max-width: 880px; margin: 24px auto; padding: 16px; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 6px 18px rgba(0,0,0,.06); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p { margin: 8px 0; color: #444; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    label { display:block; font-size: 13px; color:#333; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; }
+    .row { display:flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    button.primary { background:#111; color:#fff; }
+    button.ghost { background:#eee; }
+    .results { margin-top: 16px; border-top:1px solid #eee; padding-top: 14px; }
+    .kpi { display:flex; justify-content: space-between; padding: 10px 0; border-bottom:1px dashed #eee; gap: 16px; }
+    .kpi span { color:#333; }
+    .kpi b { font-variant-numeric: tabular-nums; text-align:right; }
+    details { margin-top: 14px; }
+    summary { cursor: pointer; font-weight: 700; }
+    .note { font-size: 12px; color:#666; margin-top: 10px; line-height: 1.4; }
+    .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#f0f0f0; font-size: 12px; margin-left: 6px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Lease Equity Calculator (10-Day Payoff)</h1>
+      <p>
+        This version prioritizes your <b>10-day payoff quote</b> for accuracy. Enter a trade-in value from KBB/Edmunds/etc.
+        to estimate positive/negative equity.
+      </p>
+
+      <div class="grid">
+        <div>
+          <label for="payoff">10-day payoff amount ($) <span class="pill">recommended</span></label>
+          <input id="payoff" type="number" step="0.01" min="0" placeholder="e.g., 27,850">
+        </div>
+
+        <div>
+          <label for="trade">Trade-in value ($)</label>
+          <input id="trade" type="number" step="0.01" min="0" placeholder="e.g., 29,400">
+        </div>
+
+        <div>
+          <label for="payoffType">Payoff quote type</label>
+          <select id="payoffType">
+            <option value="unknown">Not sure (show a reminder)</option>
+            <option value="dealer">Dealer payoff (best for trading/selling to dealer)</option>
+            <option value="customer">Customer payoff (may differ from dealer payoff)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="includesFees">Does payoff include taxes/fees?</label>
+          <select id="includesFees">
+            <option value="unknown">Not sure</option>
+            <option value="yes">Yes (tax/fees included)</option>
+            <option value="no">No (tax/fees NOT included)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="monthly">Monthly payment ($) <span class="pill">optional</span></label>
+          <input id="monthly" type="number" step="0.01" min="0" placeholder="e.g., 429.00">
+        </div>
+
+        <div>
+          <label for="remaining">Payments remaining (#) <span class="pill">optional</span></label>
+          <input id="remaining" type="number" step="1" min="0" placeholder="e.g., 14">
+        </div>
+      </div>
+
+      <details>
+        <summary>Advanced / if payoff doesn’t include tax & fees (optional)</summary>
+        <div class="grid" style="margin-top:12px;">
+          <div>
+            <label for="taxPct">Sales tax (%)</label>
+            <input id="taxPct" type="number" step="0.01" min="0" placeholder="e.g., 7">
+          </div>
+          <div>
+            <label for="feeOther">Other fees ($) (option/doc/title/etc.)</label>
+            <input id="feeOther" type="number" step="0.01" min="0" placeholder="e.g., 395">
+          </div>
+          <div>
+            <label for="dispFee">Disposition fee if returning ($) (optional)</label>
+            <input id="dispFee" type="number" step="0.01" min="0" placeholder="e.g., 350">
+          </div>
+          <div>
+            <label for="mode">Compare trade value to…</label>
+            <select id="mode">
+              <option value="payoff">Payoff only (most common)</option>
+              <option value="payoffPlusRemaining">Payoff + remaining payments (use carefully)</option>
+              <option value="returnAndWalk">Return/Walk-away cost (disposition only)</option>
+            </select>
+          </div>
+        </div>
+        <div class="note">
+          <b>About the modes:</b><br>
+          • <b>Payoff only</b> is typically what matters when a dealer buys your lease during a trade (equity ≈ trade-in − payoff).<br>
+          • <b>Payoff + remaining payments</b> is rarely the right comparison unless you’re modeling a very specific scenario—use with caution.<br>
+          • <b>Return/Walk-away</b> is just a rough “what it costs to turn it in,” often disposition fee (and possibly wear/tear, mileage, etc.).
+        </div>
+      </details>
+
+      <div class="row">
+        <button class="primary" id="calc">Calculate</button>
+        <button class="ghost" id="reset">Reset</button>
+      </div>
+
+      <div class="results" id="results" style="display:none;">
+        <div class="kpi"><span>Trade-in value</span><b id="outTrade">$0</b></div>
+        <div class="kpi"><span>10-day payoff (entered)</span><b id="outPayoff">$0</b></div>
+        <div class="kpi"><span>Estimated tax & fees added (if applicable)</span><b id="outAdds">$0</b></div>
+        <div class="kpi"><span>Remaining payments (optional)</span><b id="outRemaining">$0</b></div>
+        <div class="kpi"><span>Comparison basis used</span><b id="outBasis">$0</b></div>
+        <div class="kpi"><span>Equity estimate</span><b id="outEquity">$0</b></div>
+
+        <p id="outLabel" style="margin:10px 0 0; font-weight:800;"></p>
+        <div class="note" id="outNotes"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmt = (n) => (isFinite(n) ? n.toLocaleString(undefined, { style: "currency", currency: "USD" }) : "$0");
+
+    function num(id) {
+      const v = parseFloat($(id).value);
+      return isFinite(v) ? v : 0;
+    }
+
+    function roundInt(n) {
+      const r = Math.round(n);
+      return isFinite(r) ? r : 0;
+    }
+
+    function calc() {
+      const payoff = num("payoff");
+      const trade = num("trade");
+      const payoffType = $("payoffType").value;
+      const includesFees = $("includesFees").value;
+
+      const monthly = num("monthly");
+      const remainingN = roundInt(num("remaining"));
+      const remainingPayments = monthly * remainingN;
+
+      const taxPct = num("taxPct") / 100;
+      const feeOther = num("feeOther");
+      const dispFee = num("dispFee");
+      const mode = $("mode").value;
+
+      // Only add tax/fees if user says payoff does NOT include them.
+      const adds = (includesFees === "no")
+        ? (payoff * taxPct) + feeOther
+        : 0;
+
+      // Basis options
+      let basis = 0;
+      let basisLabel = "";
+
+      if (mode === "payoff") {
+        basis = payoff + adds;
+        basisLabel = "Payoff (plus any added tax/fees)";
+      } else if (mode === "payoffPlusRemaining") {
+        basis = payoff + adds + remainingPayments;
+        basisLabel = "Payoff + remaining payments (use carefully)";
+      } else if (mode === "returnAndWalk") {
+        basis = dispFee; // simple estimate
+        basisLabel = "Disposition fee (walk-away estimate)";
+      }
+
+      const equity = trade - basis;
+
+      $("results").style.display = "block";
+      $("outTrade").textContent = fmt(trade);
+      $("outPayoff").textContent = fmt(payoff);
+      $("outAdds").textContent = fmt(adds);
+      $("outRemaining").textContent = fmt(remainingPayments);
+      $("outBasis").textContent = fmt(basis);
+
+      $("outEquity").textContent = fmt(equity);
+
+      const label = $("outLabel");
+      if (equity > 0.01) {
+        label.textContent = `Positive equity (approx. ${fmt(equity)}). This may be usable as a down payment or taken as value in the deal.`;
+        label.style.color = "#0a7a2f";
+      } else if (equity < -0.01) {
+        label.textContent = `Negative equity (approx. ${fmt(Math.abs(equity))}). You may need to cover this (cash/down payment/rolled in).`;
+        label.style.color = "#b00020";
+      } else {
+        label.textContent = "Roughly break-even.";
+        label.style.color = "#333";
+      }
+
+      const notes = [];
+      notes.push(`<b>Basis:</b> ${basisLabel}.`);
+      if (payoffType === "customer") {
+        notes.push(`<b>Reminder:</b> Customer payoff can differ from dealer payoff. For a trade-in, ask the lessor for the <b>dealer payoff</b>.`);
+      } else if (payoffType === "unknown") {
+        notes.push(`<b>Tip:</b> If you’re trading it, confirm whether you have a <b>dealer payoff</b> vs <b>customer payoff</b>.`);
+      }
+
+      if (includesFees === "unknown") {
+        notes.push(`<b>Taxes/fees:</b> If your payoff quote already includes taxes/fees, don’t add them. If it doesn’t, you may want to add estimated tax & fees in Advanced.`);
+      } else if (includesFees === "no") {
+        notes.push(`<b>Taxes/fees added:</b> You indicated taxes/fees are not included, so I added payoff×tax% + other fees.`);
+      }
+
+      if (mode === "payoffPlusRemaining") {
+        notes.push(`<b>Caution:</b> Dealers usually compare trade-in value to payoff, not payoff + remaining payments. This mode is for special modeling only.`);
+      }
+
+      $("outNotes").innerHTML = notes.join("<br>");
+    }
+
+    function reset() {
+      [
+        "payoff","trade","monthly","remaining","taxPct","feeOther","dispFee"
+      ].forEach(id => $(id).value = "");
+      $("payoffType").value = "unknown";
+      $("includesFees").value = "unknown";
+      $("mode").value = "payoff";
+      $("results").style.display = "none";
+    }
+
+    $("calc").addEventListener("click", calc);
+    $("reset").addEventListener("click", reset);
+  </script>
+</body>
+</html>
